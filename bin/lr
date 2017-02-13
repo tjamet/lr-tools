@@ -1,0 +1,55 @@
+#!/usr/bin/env python2
+'''Force lightroom folders to ASCII
+
+Usage: lr [-v|-vv|-vvv] <command> [--help]
+       lr [-v|-vv|-vvv] to-ascii [--space=<replacement>] [--suffix=<suffix>] [--renames=<renames>] <catalog> 
+
+Options:
+    --catalog              Path to the lightroom catalog to convert
+    --space=<replacement>  Defines the replacement for the space caracter
+    --renames=<renames>    Path where to dump the renaming tree [default: renames.json]
+    --suffix=<suffix>      Duplicates the catalog before update
+    -v                     Increase program verbosity
+'''
+import docopt
+import logging
+import os
+import shutil
+import sys
+
+import lr.catalog
+import lr.modules.to_ascii
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+    args = docopt.docopt(__doc__, argv[1:])
+    if args['-v'] == 1:
+        logging.basicConfig(level=logging.WARNING)
+    elif args['-v'] == 2:
+        logging.basicConfig(level=logging.INFO)
+    elif args['-v'] == 3:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.ERROR)
+    base, ext = os.path.splitext(args['<catalog>'])
+    if args['--suffix']:
+        base += args['--suffix']
+    catalog = base + ext
+    if catalog != args['<catalog>']:
+        if os.path.exists(catalog):
+            os.remove(catalog)
+        shutil.copy2(args['<catalog>'], catalog)
+    if args['to-ascii']:
+        catalog = lr.catalog.Catalog(catalog)
+        replacements = []
+        if args['--space']:
+            replacements.append((' ', args['--space']))
+        converter = lr.modules.to_ascii.ToAscii(replacements)
+        converter.to_ascii(catalog)
+        converter.merge_folders(catalog)
+        converter.dump_actions(args['--renames'])
+
+
+if __name__ == '__main__':
+    main()
