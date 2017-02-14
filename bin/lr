@@ -1,8 +1,9 @@
 #!/usr/bin/env python2
-'''Force lightroom folders to ASCII
+'''A tool to hack lightroom catalog and files
 
 Usage: lr [-v|-vv|-vvv] <command> [--help]
-       lr [-v|-vv|-vvv] to-ascii [--space=<replacement>] [--suffix=<suffix>] [--renames=<renames>] <catalog> 
+       lr [-v|-vv|-vvv] to-ascii [--space=<replacement>] [options] [--renames=<renames>] <catalog>
+       lr [-v|-vv|-vvv] path to-ascii [--space=<replacement>] <path>
 
 Options:
     --catalog              Path to the lightroom catalog to convert
@@ -32,19 +33,24 @@ def main(argv=None):
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.ERROR)
-    base, ext = os.path.splitext(args['<catalog>'])
-    if args['--suffix']:
-        base += args['--suffix']
-    catalog = base + ext
-    if catalog != args['<catalog>']:
-        if os.path.exists(catalog):
-            os.remove(catalog)
-        shutil.copy2(args['<catalog>'], catalog)
-    if args['to-ascii']:
+    replacements = []
+
+    if args['<catalog>']:
+        base, ext = os.path.splitext(args['<catalog>'])
+        if args['--suffix']:
+            base += args['--suffix']
+        catalog = base + ext
+        if catalog != args['<catalog>']:
+            if os.path.exists(catalog):
+                os.remove(catalog)
+            shutil.copy2(args['<catalog>'], catalog)
         catalog = lr.catalog.Catalog(catalog)
-        replacements = []
-        if args['--space']:
-            replacements.append((' ', args['--space']))
+    if args['--space']:
+        replacements.append((' ', args['--space']))
+    if args['path'] and args['to-ascii']:
+        converter = lr.modules.to_ascii.ToAscii(replacements)
+        converter.normalize_folders(args['<path>'])
+    elif args['to-ascii']:
         converter = lr.modules.to_ascii.ToAscii(replacements)
         converter.to_ascii(catalog)
         converter.merge_folders(catalog)

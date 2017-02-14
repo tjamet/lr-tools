@@ -5,6 +5,7 @@ import lr.catalog
 import logging
 import random
 import re
+import sys
 import os
 import unidecode
 import itertools
@@ -12,6 +13,7 @@ import itertools
 logger = logging.getLogger('to_ascii')
 
 non_ascii_re = re.compile('[^a-zA-Z0-9 /._-]')
+exclude = ['@eaDir']
 
 
 class ToAscii(object):
@@ -22,11 +24,35 @@ class ToAscii(object):
         self.errors = []
 
     def normalize_path(self, old):
-        normalized_path = unidecode.unidecode(old)
+        try:
+            normalized_path = unidecode.unidecode(old)
+        except:
+            normalized_path = old.replace('e\xcc\x81', 'e')
         normalized_path = non_ascii_re.sub('-', normalized_path)
         for original, replacement in self.replacements:
             normalized_path = normalized_path.replace(original, replacement)
         return normalized_path
+
+    def normalize_folders(self, folder):
+        for root, dirs, files in os.walk(".", topdown=True):
+            dirs[:] = [d for d in dirs if d not in exclude]
+            for file in files:
+                normalized = self.normalize_path(file)
+                if normalized != file:
+                    #sys.stdout.write('%s\n' % os.path.join(root, file))
+                    sys.stdout.write('%s->%s\n' % (file, normalized))
+                    os.rename(
+                        os.path.join(root, file),
+                        os.path.join(root, normalized)
+                    )
+            for dir in dirs:
+                normalized = self.normalize_path(dir)
+                if normalized != dir:
+                    sys.stdout.write('%s->%s\n' % (dir, normalized))
+                    os.rename(
+                        os.path.join(root, dir),
+                        os.path.join(root, normalized)
+                    )
 
     def add_rename_child(self, path, new_path):
         if path == new_path:
