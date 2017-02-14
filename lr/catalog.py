@@ -229,6 +229,63 @@ class Catalog(object):
         self.conn = sqlite3.connect(db)
         self.logger = logging.getLogger(self.__class__.__name__)
 
+    @property
+    def empty_folders(self):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+              SELECT
+                    parent.id_local,
+                    absolutePath,
+                    parent.pathFromRoot,
+                    (
+                          SELECT
+                                1
+                            FROM
+                                AgLibraryFile
+                           WHERE
+                                AgLibraryFile.folder = parent.id_local
+                           LIMIT
+                                1
+                    ) AS has_file,
+                    (
+                          SELECT
+                                1
+                            FROM
+                                AgLibraryFolder as child
+                           WHERE
+                                child.pathFromRoot LIKE parent.pathFromRoot || '%/'
+                           LIMIT
+                                1
+                    ) AS has_folder
+                FROM
+                    AgLibraryFolder as parent
+                JOIN
+                    AgLibraryRootFolder
+                  ON
+                    parent.rootFolder = AgLibraryRootFolder.id_local
+               WHERE
+                    has_folder is NULL
+                 AND
+                    has_file is NULL
+                    ;
+        ''')
+        return [
+            (id, absolutePath, path)
+            for id, absolutePath, path, files, child in cursor
+        ]
+
+    def delete_folders(self, folder_ids):
+        cursor = self.conn.cursor()
+        cursor.executemany('''
+         DELETE FROM
+                    AgLibraryFolder
+               WHERE
+                    id_local = ?
+        ''',
+            [(id,) for id in folder_ids]
+        )
+        self.conn.commit()
+
     def write(self, cmd, args):
         c = self.conn.cursor()
         c.execute(cmd, args)

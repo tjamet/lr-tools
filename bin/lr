@@ -2,6 +2,7 @@
 '''A tool to hack lightroom catalog and files
 
 Usage: lr [-v|-vv|-vvv] <command> [--help]
+       lr [-v|-vv|-vvv] empty-folders <catalog> [--delete] [options]
        lr [-v|-vv|-vvv] to-ascii [--space=<replacement>] [options] [--renames=<renames>] <catalog>
        lr [-v|-vv|-vvv] path to-ascii [--space=<replacement>] <path>
 
@@ -10,6 +11,8 @@ Options:
     --space=<replacement>  Defines the replacement for the space caracter
     --renames=<renames>    Path where to dump the renaming tree [default: renames.json]
     --suffix=<suffix>      Duplicates the catalog before update
+    --delete               Deletes matching lines
+    --recursive            Loop the operation while elements must be processed
     -v                     Increase program verbosity
 '''
 import docopt
@@ -55,7 +58,25 @@ def main(argv=None):
         converter.to_ascii(catalog)
         converter.merge_folders(catalog)
         converter.dump_actions(args['--renames'])
-
+    elif args['empty-folders'] or args['<command>'] == 'empty-folders':
+        def print_msg(template, folders):
+            sys.stderr.write(
+                '%s\n' % '\n'.join([
+                    template % os.path.join(root, path)
+                    for _, root, path in empty_folders
+                ])
+            )
+        empty_folders = catalog.empty_folders
+        if args['--delete']:
+            while empty_folders:
+                print_msg('Delete empty folder %s', empty_folders)
+                catalog.delete_folders([id for id, _, _ in empty_folders])
+                if args['--recursive']:
+                    empty_folders = catalog.empty_folders
+                else:
+                    break
+        else:
+            print_msg('Folder %s is empty', empty_folders)
 
 if __name__ == '__main__':
     main()
